@@ -44,3 +44,33 @@ exports.getMyQueues = async (req, res) => {
     res.status(500).send("Server Error");
   }
 };
+
+// ... kode addQueue dan getMyQueues yang sudah ada ...
+
+// 3. Update Status Antrean (Admin: Panggil / Selesaikan)
+exports.updateQueueStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    // Cek apakah status yang dikirim valid sesuai Model
+    if (!["menunggu", "dipanggil", "selesai"].includes(status)) {
+      return res.status(400).json({ msg: "Status tidak valid" });
+    }
+
+    // Cari antrean berdasarkan ID di URL
+    let queue = await Queue.findById(req.params.id);
+
+    if (!queue) {
+      return res.status(404).json({ msg: "Antrean tidak ditemukan" });
+    }
+
+    // Update status
+    queue.status = status;
+    await queue.save();
+
+    res.json(queue);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};
