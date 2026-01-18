@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema({
   nama: { type: String, required: true },
   username: { type: String, unique: true, sparse: true },
   email: { type: String, required: true, unique: true },
-  passowrd: { type: String, required: true },
+  password: { type: String, required: true },
   tanggalLahir: { type: Date },
   role: {
     type: String,
@@ -12,7 +12,14 @@ const UserSchema = new mongoose.Schema({
     default: "pasien",
   },
   noHp: { type: String, default: "" },
+
+  isVerified: { type: Boolean, default: false },
+  activationToken: { type: String },
+
+  resetPasswordToken: { type: String },
+  resetPasswordExpire: { type: Date },
+
   createdAt: { type: Date, default: Date.now },
 });
 
-module.export = mongoose.model("User", UserSchema);
+module.exports = mongoose.model("User", UserSchema);

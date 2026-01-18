@@ -1,78 +1,40 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "noreply.riha@gmail.com",
+    pass: "bidq tcab vgvm tour",
+  },
+});
 
 // 1. Logika Register (Daftar Akun)
-// exports.register = async (req, res) => {
-//   try {
-//     const { nama, email, username, tanggalLahir, password, role } = req.body;
-
-//     // Cek apakah user sudah ada
-//     let user = await User.findOne({ email });
-//     if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
-
-//     if (username) {
-//       let usernameCheck = await User.findOne({ username });
-//       if (usernameCheck)
-//         return res.status(400).json({ msg: "Username Sudah Dipakai" });
-//     }
-
-//     // Enkripsi Password
-//     const salt = await bcrypt.genSalt(10);
-//     const hashedPassword = await bcrypt.hash(password, salt);
-
-//     // Simpan User Baru
-//     user = new User({
-//       nama,
-//       email,
-//       username: username || "",
-//       password: hashedPassword,
-//       tanggalLahir: tanggalLahir,
-//       role: role || "pasien",
-//     });
-
-//     await user.save();
-//     res.status(201).json({ msg: "Registrasi Berhasil! Silakan Login." });
-//   } catch (err) {
-//     res.status(500).json({ msg: "Server Error", error: err.message });
-//   }
-// };
-
 exports.register = async (req, res) => {
-  console.log("--- 1. Request Register Masuk ---");
-  console.log("Body:", req.body); // Cek apakah data sampai
-
   try {
     const { nama, email, username, password, tanggalLahir, role } = req.body;
 
-    console.log("--- 2. Cek Kelengkapan Data ---");
-    // Validasi Manual
-    if (!nama || !email || !username || !password || !tanggalLahir) {
-      console.log("DATA TIDAK LENGKAP!");
-      return res.status(400).json({ msg: "Mohon lengkapi semua data" });
-    }
+    // Cek Email & Username
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
 
-    console.log("--- 3. Cek Email di DB ---");
-    let userCheck = await User.findOne({ email });
-    if (userCheck) {
-      console.log("Email sudah ada");
-      return res.status(400).json({ msg: "Email sudah terdaftar" });
-    }
-
-    console.log("--- 4. Cek Username di DB ---");
     if (username) {
-      let usernameCheck = await User.findOne({ username });
-      if (usernameCheck) {
-        console.log("Username sudah ada");
+      let userCheck = await User.findOne({ username });
+      if (userCheck)
         return res.status(400).json({ msg: "Username sudah dipakai" });
-      }
     }
 
-    console.log("--- 5. Mulai Hashing Password ---");
+    // Hash Password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    console.log("--- 6. Siapkan Object User Baru ---");
+    // [BARU] Buat Token Aktivasi (Random String)
+    const activationToken = crypto.randomBytes(32).toString("hex");
+
+    // Simpan User (Status isVerified: false)
     const newUser = new User({
       nama,
       email,
@@ -80,18 +42,63 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       tanggalLahir,
       role: role || "pasien",
+      isVerified: false, // Belum aktif
+      activationToken: activationToken, // Simpan token
     });
 
-    console.log("--- 7. Coba Simpan ke Database ---");
     await newUser.save();
-    console.log("--- 8. BERHASIL SIMPAN! ---");
 
-    res.status(201).json({ msg: "Registrasi Berhasil! Silakan Login." });
+    // [BARU] Kirim Email Aktivasi
+    // Ganti URL frontend sesuai port Vue Anda (biasanya http://localhost:5173)
+    const activationLink = `http://localhost:5173/activate-account?token=${activationToken}`;
+
+    const mailOptions = {
+      from: '"RiHa Admin" <no-reply@riha.com>',
+      to: email,
+      subject: "Aktivasi Akun RiHa Medical Center",
+      html: `
+        <h3>Halo, ${nama}!</h3>
+        <p>Terima kasih telah mendaftar. Silakan klik link di bawah ini untuk mengaktifkan akun Anda:</p>
+        <a href="${activationLink}" style="background:#1d64f2; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">AKTIFKAN AKUN SAYA</a>
+        <p>Atau copy link ini: ${activationLink}</p>
+        <p>Link ini berlaku selamanya sampai Anda mengkliknya.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(201).json({
+      msg: "Registrasi Berhasil! Silakan cek email Anda untuk aktivasi akun.",
+    });
   } catch (err) {
-    // INI YANG KITA CARI:
-    console.log("!!! ERROR TERTANGKAP DI CATCH !!!");
-    console.error(err); // Akan mencetak error lengkap
+    console.error(err);
     res.status(500).json({ msg: "Server Error", error: err.message });
+  }
+};
+
+exports.activateAccount = async (req, res) => {
+  try {
+    const { token } = req.body; // Token dikirim dari frontend
+
+    if (!token) return res.status(400).json({ msg: "Token tidak valid" });
+
+    // Cari user berdasarkan token
+    const user = await User.findOne({ activationToken: token });
+
+    if (!user)
+      return res
+        .status(400)
+        .json({ msg: "Link aktivasi tidak valid atau sudah digunakan." });
+
+    // Aktifkan User
+    user.isVerified = true;
+    user.activationToken = undefined; // Hapus token agar tidak bisa dipakai lagi
+    await user.save();
+
+    res.json({ msg: "Akun berhasil diaktifkan! Silakan login." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server Error" });
   }
 };
 
@@ -106,13 +113,20 @@ exports.login = async (req, res) => {
     });
     if (!user) return res.status(400).json({ msg: "Akun tidak ditemukan" });
 
+    // [BARU] Cek Apakah Sudah Verifikasi?
+    if (!user.isVerified) {
+      return res.status(400).json({
+        msg: "Akun belum aktif. Silakan cek email Anda untuk verifikasi.",
+      });
+    }
+
     // Cek Password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Password salah" });
 
-    // Buat Token (Tiket Masuk)
+    // Login Sukses
     const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+    const token = jwt.sign(payload, process.env.JWT_SECRET || "rahasia", {
       expiresIn: "1d",
     });
 
@@ -121,6 +135,7 @@ exports.login = async (req, res) => {
       user: { id: user.id, nama: user.nama, role: user.role },
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: "Server Error" });
   }
 };
@@ -158,5 +173,84 @@ exports.updateProfile = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
+  }
+};
+
+// ... kode register, login, activateAccount, dll ...
+
+// 4. LUPA PASSWORD (Kirim Link Reset)
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Cek User
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ msg: "Email tidak terdaftar" });
+    }
+
+    // Buat Token Reset
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Simpan Token ke Database (Berlaku 1 Jam)
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpire = Date.now() + 3600000; // 1 Jam dari sekarang
+    await user.save();
+
+    // Kirim Email
+    // Ganti 5173 dengan port frontend Anda jika beda
+    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
+
+    const mailOptions = {
+      from: '"RiHa Admin" <riha.admin.notify@gmail.com>',
+      to: email,
+      subject: "Reset Password RiHa Medical Center",
+      html: `
+        <h3>Permintaan Reset Password</h3>
+        <p>Anda menerima email ini karena ada permintaan reset password untuk akun Anda.</p>
+        <p>Klik link di bawah ini untuk membuat password baru:</p>
+        <a href="${resetLink}" style="background:#1d64f2; color:white; padding:10px 20px; text-decoration:none; border-radius:5px; display:inline-block;">RESET PASSWORD</a>
+        <p>Link ini kedaluwarsa dalam 1 jam.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.json({ msg: "Link reset password telah dikirim ke email Anda." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server Error" });
+  }
+};
+
+// 5. ATUR PASSWORD BARU (Dipanggil saat submit password baru)
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Cari user dengan token valid dan belum expired
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpire: { $gt: Date.now() }, // $gt = Greater Than (Waktu sekarang belum lewat expired)
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ msg: "Token tidak valid atau sudah kedaluwarsa" });
+    }
+
+    // Hash Password Baru
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    // Hapus Token (Supaya tidak bisa dipakai lagi)
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+    res.json({ msg: "Password berhasil diubah! Silakan login." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server Error" });
   }
 };

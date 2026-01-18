@@ -8,6 +8,7 @@ const {
   getMyQueues,
   updateQueueStatus,
   getAllQueues,
+  resetDailyQueue,
 } = require("../controllers/queueController");
 
 // POST /api/queue -> Tambah Antrean (Perlu Login)
@@ -17,6 +18,8 @@ router.post("/", auth, addQueue);
 router.get("/", auth, getMyQueues);
 
 router.get("/all", auth, getAllQueues);
+
+router.delete("/reset", auth, resetDailyQueue);
 
 router.put("/:id/status", auth, updateQueueStatus);
 router.get("/all", auth, admin, getAllQueues);
