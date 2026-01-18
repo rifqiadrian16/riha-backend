@@ -92,19 +92,36 @@ exports.register = async (req, res) => {
   try {
     const { nama, email, username, password, tanggalLahir, role } = req.body;
 
-    // 1. Cek Email apakah sudah terdaftar
-    // Variabel 'user' ini isinya null jika belum terdaftar
+    // --- [LOGIKA BARU MULAI] ---
+
+    // 1. Cek Email
     let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
+    if (user) {
+      // Jika user sudah ada DAN sudah aktif -> Tolak
+      if (user.isVerified) {
+        return res.status(400).json({ msg: "Email sudah terdaftar" });
+      }
+      // Jika user ada tapi BELUM aktif (isVerified: false) -> Hapus data lama (overwrite)
+      else {
+        await User.deleteOne({ _id: user._id });
+      }
+    }
 
     // 2. Cek Username
     if (username) {
       let userCheck = await User.findOne({ username });
-      if (userCheck)
-        return res.status(400).json({ msg: "Username sudah dipakai" });
+      if (userCheck) {
+        if (userCheck.isVerified) {
+          return res.status(400).json({ msg: "Username sudah dipakai" });
+        } else {
+          await User.deleteOne({ _id: userCheck._id });
+        }
+      }
     }
 
-    // 3. Hash Password
+    // --- [LOGIKA BARU SELESAI] ---
+
+    // 3. Hash Password (Lanjut seperti kode sebelumnya...)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -129,26 +146,10 @@ exports.register = async (req, res) => {
     // Setelah baris ini dijalankan, newUser akan memiliki .id (atau ._id)
     await newUser.save();
 
-    // --- [PERBAIKAN UTAMA ADA DI SINI] ---
-    const payload = {
-      user: {
-        // GUNAKAN 'newUser.id', BUKAN 'user.id'
-        // Karena 'user' di atas nilainya null.
-        id: newUser.id,
-      },
-    };
-
-    // 7. Buat JWT Token untuk Link Email
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
     // 8. Kirim Email
     // Mengambil CLIENT_URL dari env (prioritas) atau localhost (fallback)
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
-
-    // Link mengarah ke frontend, misal: http://localhost:5173/activate/eyJhbG...
-    const activationLink = `${clientUrl}/activate/${token}`;
+    const activationLink = `${clientUrl}/activate-account?token=${activationToken}`;
 
     const mailOptions = {
       from: '"RiHa Admin" <no-reply@riha.com>',
@@ -300,9 +301,10 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 3600000; // 1 Jam dari sekarang
     await user.save();
 
-    // Kirim Email
-    // Ganti 5173 dengan port frontend Anda jika beda
-    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
+    // const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
+    const resetLink = `${clientUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
       from: '"RiHa Admin" <riha.admin.notify@gmail.com>',
