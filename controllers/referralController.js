@@ -4,11 +4,12 @@ const User = require("../models/User");
 // 1. ADMIN: Buat Surat Rujukan Baru (Tanpa pilih RS dulu)
 exports.createReferralRequest = async (req, res) => {
   try {
-    const { pasienId, spesialis, catatan } = req.body;
+    const { pasienId, namaPasien, spesialis, catatan } = req.body;
 
     // Buat data rujukan baru
     const newReferral = new Referral({
       pasien: pasienId,
+      namaPasien: namaPasien,
       adminPembuat: req.user.id, // ID Admin dari token login
       spesialisTujuan: spesialis,
       catatan: catatan,

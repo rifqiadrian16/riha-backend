@@ -6,6 +6,7 @@ const ReferralSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  namaPasien: { type: String, required: true },
   adminPembuat: {
     // Tambahan: Siapa admin yang merujuk
     type: mongoose.Schema.Types.ObjectId,

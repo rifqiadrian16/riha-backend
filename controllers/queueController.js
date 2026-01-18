@@ -1,26 +1,29 @@
 const Queue = require("../models/Queue");
 
-// 1. Ambil Nomor Antrean Baru
+// controllers/queueController.js
+
 exports.addQueue = async (req, res) => {
   try {
-    const { poli } = req.body;
+    // 1. Ambil data tambahan dari body (namaPasien, noHp, catatan)
+    const { poli, namaPasien, noHp, catatan } = req.body;
 
-    // Cari antrean terakhir di poli tersebut HARI INI
     const startToday = new Date();
     startToday.setHours(0, 0, 0, 0);
 
     const lastQueue = await Queue.findOne({
       poli: poli,
       tanggal: { $gte: startToday },
-    }).sort({ nomorAntrean: -1 }); // Urutkan dari yang terbesar
+    }).sort({ nomorAntrean: -1 });
 
-    // Tentukan nomor baru
     const nomorBaru = lastQueue ? lastQueue.nomorAntrean + 1 : 1;
 
-    // Simpan ke database
+    // 2. Simpan data lengkap ke database
     const newQueue = new Queue({
-      user: req.user.id, // Didapat dari middleware auth
-      poli,
+      user: req.user.id, // Tetap link ke akun pendaftar
+      namaPasien: namaPasien, // <--- Simpan Nama Pasien Manual
+      noHp: noHp,
+      catatan: catatan,
+      poli: poli,
       nomorAntrean: nomorBaru,
     });
 
@@ -55,7 +58,7 @@ exports.updateQueueStatus = async (req, res) => {
     const updatedQueue = await Queue.findByIdAndUpdate(
       req.params.id,
       { status: status },
-      { new: true }
+      { new: true },
     );
     res.json(updatedQueue);
   } catch (err) {

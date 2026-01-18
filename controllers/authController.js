@@ -3,29 +3,94 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 // 1. Logika Register (Daftar Akun)
+// exports.register = async (req, res) => {
+//   try {
+//     const { nama, email, username, tanggalLahir, password, role } = req.body;
+
+//     // Cek apakah user sudah ada
+//     let user = await User.findOne({ email });
+//     if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
+
+//     if (username) {
+//       let usernameCheck = await User.findOne({ username });
+//       if (usernameCheck)
+//         return res.status(400).json({ msg: "Username Sudah Dipakai" });
+//     }
+
+//     // Enkripsi Password
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(password, salt);
+
+//     // Simpan User Baru
+//     user = new User({
+//       nama,
+//       email,
+//       username: username || "",
+//       password: hashedPassword,
+//       tanggalLahir: tanggalLahir,
+//       role: role || "pasien",
+//     });
+
+//     await user.save();
+//     res.status(201).json({ msg: "Registrasi Berhasil! Silakan Login." });
+//   } catch (err) {
+//     res.status(500).json({ msg: "Server Error", error: err.message });
+//   }
+// };
+
 exports.register = async (req, res) => {
+  console.log("--- 1. Request Register Masuk ---");
+  console.log("Body:", req.body); // Cek apakah data sampai
+
   try {
-    const { nama, email, password, role } = req.body;
+    const { nama, email, username, password, tanggalLahir, role } = req.body;
 
-    // Cek apakah user sudah ada
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
+    console.log("--- 2. Cek Kelengkapan Data ---");
+    // Validasi Manual
+    if (!nama || !email || !username || !password || !tanggalLahir) {
+      console.log("DATA TIDAK LENGKAP!");
+      return res.status(400).json({ msg: "Mohon lengkapi semua data" });
+    }
 
-    // Enkripsi Password
+    console.log("--- 3. Cek Email di DB ---");
+    let userCheck = await User.findOne({ email });
+    if (userCheck) {
+      console.log("Email sudah ada");
+      return res.status(400).json({ msg: "Email sudah terdaftar" });
+    }
+
+    console.log("--- 4. Cek Username di DB ---");
+    if (username) {
+      let usernameCheck = await User.findOne({ username });
+      if (usernameCheck) {
+        console.log("Username sudah ada");
+        return res.status(400).json({ msg: "Username sudah dipakai" });
+      }
+    }
+
+    console.log("--- 5. Mulai Hashing Password ---");
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Simpan User Baru
-    user = new User({
+    console.log("--- 6. Siapkan Object User Baru ---");
+    const newUser = new User({
       nama,
       email,
+      username,
       password: hashedPassword,
+      tanggalLahir,
       role: role || "pasien",
     });
 
-    await user.save();
+    console.log("--- 7. Coba Simpan ke Database ---");
+    await newUser.save();
+    console.log("--- 8. BERHASIL SIMPAN! ---");
+
     res.status(201).json({ msg: "Registrasi Berhasil! Silakan Login." });
   } catch (err) {
+    // INI YANG KITA CARI:
+    console.log("!!! ERROR TERTANGKAP DI CATCH !!!");
+    console.error(err); // Akan mencetak error lengkap
     res.status(500).json({ msg: "Server Error", error: err.message });
   }
 };
@@ -33,11 +98,13 @@ exports.register = async (req, res) => {
 // 2. Logika Login (Masuk)
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
     // Cek User
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ msg: "Email tidak ditemukan" });
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    });
+    if (!user) return res.status(400).json({ msg: "Akun tidak ditemukan" });
 
     // Cek Password
     const isMatch = await bcrypt.compare(password, user.password);

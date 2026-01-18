@@ -6,6 +6,9 @@ const QueueSchema = new mongoose.Schema({
     ref: "User", // Relasi ke tabel User
     required: true,
   },
+  namaPasien: { type: String, required: true }, // Nama orang yang berobat
+  noHp: { type: String, default: "" }, // No HP orang yang berobat
+  catatan: { type: String, default: "" },
   poli: {
     type: String,
     required: true, // Contoh: 'Umum', 'Gigi', 'KIA'
