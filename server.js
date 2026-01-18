@@ -11,11 +11,13 @@ const { Server } = require("socket.io");
 const rateLimit = require("express-rate-limit");
 
 const app = express();
-const server = http.createServer(app); // Gunakan HTTP Server, bukan app.listen
+const server = http.createServer(app);
+
+app.set("trust proxy", 1);
 
 const allowedOrigins = [
   "http://localhost:5173", // Untuk development lokal
-  "https://riha-frontend.vercel.app", // [NANTI] Ganti ini dengan link Vercel Anda setelah jadi
+  "https://riha-frontend.vercel.app/", // [NANTI] Ganti ini dengan link Vercel Anda setelah jadi
 ];
 
 // --- 2. KONFIGURASI SOCKET.IO (CORS PENTING) ---

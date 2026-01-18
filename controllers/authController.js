@@ -13,28 +13,107 @@ const transporter = nodemailer.createTransport({
 });
 
 // 1. Logika Register (Daftar Akun)
+// exports.register = async (req, res) => {
+//   try {
+//     const { nama, email, username, password, tanggalLahir, role } = req.body;
+
+//     // Cek Email & Username
+//     let user = await User.findOne({ email });
+//     if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
+
+//     if (username) {
+//       let userCheck = await User.findOne({ username });
+//       if (userCheck)
+//         return res.status(400).json({ msg: "Username sudah dipakai" });
+//     }
+
+//     // Hash Password
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(password, salt);
+
+//     // [BARU] Buat Token Aktivasi (Random String)
+//     const activationToken = crypto.randomBytes(32).toString("hex");
+
+//     // Simpan User (Status isVerified: false)
+//     const newUser = new User({
+//       nama,
+//       email,
+//       username,
+//       password: hashedPassword,
+//       tanggalLahir,
+//       role: role || "pasien",
+//       isVerified: false, // Belum aktif
+//       activationToken: activationToken, // Simpan token
+//     });
+
+//     await newUser.save();
+
+//     const payload = {
+//       user: {
+//         id: user.id,
+//       },
+//     };
+
+//     const token = jwt.sign(payload, process.env.JWT_SECRET, {
+//       expiresIn: "1h",
+//     });
+
+//     // [BARU] Kirim Email Aktivasi
+//     // Ganti URL frontend sesuai port Vue Anda (biasanya http://localhost:5173)
+//     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
+//     const activationLink = `${clientUrl}/activate/${token}`;
+
+//     const mailOptions = {
+//       from: '"RiHa Admin" <no-reply@riha.com>',
+//       to: email,
+//       subject: "Aktivasi Akun RiHa Medical Center",
+//       html: `
+//         <h3>Halo, ${nama}!</h3>
+//         <p>Terima kasih telah mendaftar. Silakan klik link di bawah ini untuk mengaktifkan akun Anda:</p>
+//         <a href="${activationLink}" style="background:#1d64f2; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">AKTIFKAN AKUN SAYA</a>
+//         <p>Atau copy link ini: ${activationLink}</p>
+//         <p>Link ini berlaku selamanya sampai Anda mengkliknya.</p>
+//       `,
+//     };
+
+//     await transporter.sendMail(mailOptions);
+
+//     res.status(201).json({
+//       msg: "Registrasi Berhasil! Silakan cek email Anda untuk aktivasi akun.",
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ msg: "Server Error", error: err.message });
+//   }
+// };
+
 exports.register = async (req, res) => {
   try {
     const { nama, email, username, password, tanggalLahir, role } = req.body;
 
-    // Cek Email & Username
+    // 1. Cek Email apakah sudah terdaftar
+    // Variabel 'user' ini isinya null jika belum terdaftar
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
 
+    // 2. Cek Username
     if (username) {
       let userCheck = await User.findOne({ username });
       if (userCheck)
         return res.status(400).json({ msg: "Username sudah dipakai" });
     }
 
-    // Hash Password
+    // 3. Hash Password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // [BARU] Buat Token Aktivasi (Random String)
+    // 4. (Opsional) Buat Token Random untuk database
+    // Ini berguna jika validasi backend Anda mencocokkan string di database
     const activationToken = crypto.randomBytes(32).toString("hex");
 
-    // Simpan User (Status isVerified: false)
+    // 5. Siapkan Object User Baru
+    // Perhatikan nama variabelnya adalah 'newUser'
     const newUser = new User({
       nama,
       email,
@@ -42,26 +121,50 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       tanggalLahir,
       role: role || "pasien",
-      isVerified: false, // Belum aktif
-      activationToken: activationToken, // Simpan token
+      isVerified: false,
+      activationToken: activationToken,
     });
 
+    // 6. SIMPAN KE DATABASE
+    // Setelah baris ini dijalankan, newUser akan memiliki .id (atau ._id)
     await newUser.save();
 
-    // [BARU] Kirim Email Aktivasi
-    // Ganti URL frontend sesuai port Vue Anda (biasanya http://localhost:5173)
-    const activationLink = `http://localhost:5173/activate-account?token=${activationToken}`;
+    // --- [PERBAIKAN UTAMA ADA DI SINI] ---
+    const payload = {
+      user: {
+        // GUNAKAN 'newUser.id', BUKAN 'user.id'
+        // Karena 'user' di atas nilainya null.
+        id: newUser.id,
+      },
+    };
+
+    // 7. Buat JWT Token untuk Link Email
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    // 8. Kirim Email
+    // Mengambil CLIENT_URL dari env (prioritas) atau localhost (fallback)
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
+    // Link mengarah ke frontend, misal: http://localhost:5173/activate/eyJhbG...
+    const activationLink = `${clientUrl}/activate/${token}`;
 
     const mailOptions = {
       from: '"RiHa Admin" <no-reply@riha.com>',
       to: email,
       subject: "Aktivasi Akun RiHa Medical Center",
       html: `
-        <h3>Halo, ${nama}!</h3>
-        <p>Terima kasih telah mendaftar. Silakan klik link di bawah ini untuk mengaktifkan akun Anda:</p>
-        <a href="${activationLink}" style="background:#1d64f2; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">AKTIFKAN AKUN SAYA</a>
-        <p>Atau copy link ini: ${activationLink}</p>
-        <p>Link ini berlaku selamanya sampai Anda mengkliknya.</p>
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h3 style="color: #1d64f2;">Halo, ${nama}!</h3>
+          <p>Terima kasih telah mendaftar. Silakan klik tombol di bawah ini untuk mengaktifkan akun Anda:</p>
+          <div style="margin: 20px 0;">
+            <a href="${activationLink}" style="background-color:#1d64f2; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; display:inline-block; font-weight:bold;">AKTIFKAN AKUN SAYA</a>
+          </div>
+          <p style="color: #666;">Atau salin link ini ke browser Anda:</p>
+          <p style="word-break: break-all; color: #1d64f2;">${activationLink}</p>
+          <p style="font-size: 12px; color: #888;">Link ini berlaku selama 1 jam.</p>
+        </div>
       `,
     };
 
@@ -71,7 +174,7 @@ exports.register = async (req, res) => {
       msg: "Registrasi Berhasil! Silakan cek email Anda untuk aktivasi akun.",
     });
   } catch (err) {
-    console.error(err);
+    console.error("Error Register:", err);
     res.status(500).json({ msg: "Server Error", error: err.message });
   }
 };
