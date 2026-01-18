@@ -9,6 +9,10 @@ const UserSchema = new mongoose.Schema({
     enum: ["pasien", "admin"],
     default: "pasien",
   },
+  noHp: {
+    type: String,
+    default: "",
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

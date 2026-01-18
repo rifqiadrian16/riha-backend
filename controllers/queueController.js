@@ -51,24 +51,29 @@ exports.getMyQueues = async (req, res) => {
 exports.updateQueueStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    // Update status antrean berdasarkan ID
+    const updatedQueue = await Queue.findByIdAndUpdate(
+      req.params.id,
+      { status: status },
+      { new: true }
+    );
+    res.json(updatedQueue);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};
 
-    // Cek apakah status yang dikirim valid sesuai Model
-    if (!["menunggu", "dipanggil", "selesai"].includes(status)) {
-      return res.status(400).json({ msg: "Status tidak valid" });
-    }
+exports.getAllQueues = async (req, res) => {
+  try {
+    // Ambil semua antrean hari ini
+    const startToday = new Date();
+    startToday.setHours(0, 0, 0, 0);
 
-    // Cari antrean berdasarkan ID di URL
-    let queue = await Queue.findById(req.params.id);
-
-    if (!queue) {
-      return res.status(404).json({ msg: "Antrean tidak ditemukan" });
-    }
-
-    // Update status
-    queue.status = status;
-    await queue.save();
-
-    res.json(queue);
+    const queues = await Queue.find({ tanggal: { $gte: startToday } }).sort({
+      nomorAntrean: 1,
+    });
+    res.json(queues);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");

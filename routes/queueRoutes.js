@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
-// PENTING: Tambahkan 'updateQueueStatus' di dalam kurung kurawal
+const admin = require("../middleware/admin");
+
 const {
   addQueue,
   getMyQueues,
   updateQueueStatus,
+  getAllQueues,
 } = require("../controllers/queueController");
 
 // POST /api/queue -> Tambah Antrean (Perlu Login)
@@ -14,7 +16,10 @@ router.post("/", auth, addQueue);
 // GET /api/queue -> Lihat Antrean Saya (Perlu Login)
 router.get("/", auth, getMyQueues);
 
-// BARU: PUT /api/queue/:id/status -> Update Status (Admin memanggil pasien)
+router.get("/all", auth, getAllQueues);
+
 router.put("/:id/status", auth, updateQueueStatus);
+router.get("/all", auth, admin, getAllQueues);
+router.put("/:id/status", auth, admin, updateQueueStatus);
 
 module.exports = router;

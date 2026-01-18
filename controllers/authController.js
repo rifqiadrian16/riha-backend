@@ -57,3 +57,39 @@ exports.login = async (req, res) => {
     res.status(500).json({ msg: "Server Error" });
   }
 };
+
+exports.getProfile = async (req, res) => {
+  try {
+    // req.user.id didapat dari middleware auth
+    const user = await User.findById(req.user.id).select("-password");
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};
+
+// 4. UPDATE PROFIL (PUT)
+exports.updateProfile = async (req, res) => {
+  try {
+    const { nama, email, noHp } = req.body;
+
+    // Cari user
+    let user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
+
+    // Update field jika ada input baru
+    if (nama) user.nama = nama;
+    if (email) user.email = email;
+    if (noHp) user.noHp = noHp;
+
+    await user.save();
+
+    // Kembalikan data user tanpa password
+    const userResponse = await User.findById(req.user.id).select("-password");
+    res.json(userResponse);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};

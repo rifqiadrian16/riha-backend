@@ -16,7 +16,7 @@ const QueueSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["menunggu", "dipanggil", "selesai"],
+    enum: ["menunggu", "dipanggil", "selesai", "dilewati", "batal"],
     default: "menunggu",
   },
   tanggal: {
