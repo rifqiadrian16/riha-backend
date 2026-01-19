@@ -7,102 +7,20 @@ const nodemailer = require("nodemailer");
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "noreply.riha@gmail.com",
-    pass: "bidq tcab vgvm tour",
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
-
-// 1. Logika Register (Daftar Akun)
-// exports.register = async (req, res) => {
-//   try {
-//     const { nama, email, username, password, tanggalLahir, role } = req.body;
-
-//     // Cek Email & Username
-//     let user = await User.findOne({ email });
-//     if (user) return res.status(400).json({ msg: "Email sudah terdaftar" });
-
-//     if (username) {
-//       let userCheck = await User.findOne({ username });
-//       if (userCheck)
-//         return res.status(400).json({ msg: "Username sudah dipakai" });
-//     }
-
-//     // Hash Password
-//     const salt = await bcrypt.genSalt(10);
-//     const hashedPassword = await bcrypt.hash(password, salt);
-
-//     // [BARU] Buat Token Aktivasi (Random String)
-//     const activationToken = crypto.randomBytes(32).toString("hex");
-
-//     // Simpan User (Status isVerified: false)
-//     const newUser = new User({
-//       nama,
-//       email,
-//       username,
-//       password: hashedPassword,
-//       tanggalLahir,
-//       role: role || "pasien",
-//       isVerified: false, // Belum aktif
-//       activationToken: activationToken, // Simpan token
-//     });
-
-//     await newUser.save();
-
-//     const payload = {
-//       user: {
-//         id: user.id,
-//       },
-//     };
-
-//     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-//       expiresIn: "1h",
-//     });
-
-//     // [BARU] Kirim Email Aktivasi
-//     // Ganti URL frontend sesuai port Vue Anda (biasanya http://localhost:5173)
-//     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
-
-//     const activationLink = `${clientUrl}/activate/${token}`;
-
-//     const mailOptions = {
-//       from: '"RiHa Admin" <no-reply@riha.com>',
-//       to: email,
-//       subject: "Aktivasi Akun RiHa Medical Center",
-//       html: `
-//         <h3>Halo, ${nama}!</h3>
-//         <p>Terima kasih telah mendaftar. Silakan klik link di bawah ini untuk mengaktifkan akun Anda:</p>
-//         <a href="${activationLink}" style="background:#1d64f2; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">AKTIFKAN AKUN SAYA</a>
-//         <p>Atau copy link ini: ${activationLink}</p>
-//         <p>Link ini berlaku selamanya sampai Anda mengkliknya.</p>
-//       `,
-//     };
-
-//     await transporter.sendMail(mailOptions);
-
-//     res.status(201).json({
-//       msg: "Registrasi Berhasil! Silakan cek email Anda untuk aktivasi akun.",
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ msg: "Server Error", error: err.message });
-//   }
-// };
 
 exports.register = async (req, res) => {
   try {
     const { nama, email, username, password, tanggalLahir, role } = req.body;
 
-    // --- [LOGIKA BARU MULAI] ---
-
-    // 1. Cek Email
     let user = await User.findOne({ email });
     if (user) {
-      // Jika user sudah ada DAN sudah aktif -> Tolak
       if (user.isVerified) {
         return res.status(400).json({ msg: "Email sudah terdaftar" });
-      }
-      // Jika user ada tapi BELUM aktif (isVerified: false) -> Hapus data lama (overwrite)
-      else {
+      } else {
         await User.deleteOne({ _id: user._id });
       }
     }
@@ -119,18 +37,11 @@ exports.register = async (req, res) => {
       }
     }
 
-    // --- [LOGIKA BARU SELESAI] ---
-
-    // 3. Hash Password (Lanjut seperti kode sebelumnya...)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 4. (Opsional) Buat Token Random untuk database
-    // Ini berguna jika validasi backend Anda mencocokkan string di database
     const activationToken = crypto.randomBytes(32).toString("hex");
 
-    // 5. Siapkan Object User Baru
-    // Perhatikan nama variabelnya adalah 'newUser'
     const newUser = new User({
       nama,
       email,
@@ -142,12 +53,8 @@ exports.register = async (req, res) => {
       activationToken: activationToken,
     });
 
-    // 6. SIMPAN KE DATABASE
-    // Setelah baris ini dijalankan, newUser akan memiliki .id (atau ._id)
     await newUser.save();
 
-    // 8. Kirim Email
-    // Mengambil CLIENT_URL dari env (prioritas) atau localhost (fallback)
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
     const activationLink = `${clientUrl}/activate-account?token=${activationToken}`;
 
@@ -182,11 +89,10 @@ exports.register = async (req, res) => {
 
 exports.activateAccount = async (req, res) => {
   try {
-    const { token } = req.body; // Token dikirim dari frontend
+    const { token } = req.body;
 
     if (!token) return res.status(400).json({ msg: "Token tidak valid" });
 
-    // Cari user berdasarkan token
     const user = await User.findOne({ activationToken: token });
 
     if (!user)
@@ -194,9 +100,8 @@ exports.activateAccount = async (req, res) => {
         .status(400)
         .json({ msg: "Link aktivasi tidak valid atau sudah digunakan." });
 
-    // Aktifkan User
     user.isVerified = true;
-    user.activationToken = undefined; // Hapus token agar tidak bisa dipakai lagi
+    user.activationToken = undefined;
     await user.save();
 
     res.json({ msg: "Akun berhasil diaktifkan! Silakan login." });
@@ -211,13 +116,10 @@ exports.login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
 
-    // Cek User
     const user = await User.findOne({
       $or: [{ email: identifier }, { username: identifier }],
     });
     if (!user) return res.status(400).json({ msg: "Akun tidak ditemukan" });
-
-    // [BARU] Cek Apakah Sudah Verifikasi?
     if (!user.isVerified) {
       return res.status(400).json({
         msg: "Akun belum aktif. Silakan cek email Anda untuk verifikasi.",
@@ -246,7 +148,6 @@ exports.login = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
-    // req.user.id didapat dari middleware auth
     const user = await User.findById(req.user.id).select("-password");
     res.json(user);
   } catch (err) {
@@ -260,18 +161,15 @@ exports.updateProfile = async (req, res) => {
   try {
     const { nama, email, noHp } = req.body;
 
-    // Cari user
     let user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
 
-    // Update field jika ada input baru
     if (nama) user.nama = nama;
     if (email) user.email = email;
     if (noHp) user.noHp = noHp;
 
     await user.save();
 
-    // Kembalikan data user tanpa password
     const userResponse = await User.findById(req.user.id).select("-password");
     res.json(userResponse);
   } catch (err) {
@@ -279,8 +177,6 @@ exports.updateProfile = async (req, res) => {
     res.status(500).send("Server Error");
   }
 };
-
-// ... kode register, login, activateAccount, dll ...
 
 // 4. LUPA PASSWORD (Kirim Link Reset)
 exports.forgotPassword = async (req, res) => {
@@ -296,14 +192,12 @@ exports.forgotPassword = async (req, res) => {
     // Buat Token Reset
     const resetToken = crypto.randomBytes(32).toString("hex");
 
-    // Simpan Token ke Database (Berlaku 1 Jam)
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpire = Date.now() + 3600000; // 1 Jam dari sekarang
+    user.resetPasswordExpire = Date.now() + 3600000;
     await user.save();
 
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
 
-    // const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
     const resetLink = `${clientUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
@@ -332,10 +226,9 @@ exports.resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 
-    // Cari user dengan token valid dan belum expired
     const user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpire: { $gt: Date.now() }, // $gt = Greater Than (Waktu sekarang belum lewat expired)
+      resetPasswordExpire: { $gt: Date.now() },
     });
 
     if (!user) {
@@ -344,11 +237,9 @@ exports.resetPassword = async (req, res) => {
         .json({ msg: "Token tidak valid atau sudah kedaluwarsa" });
     }
 
-    // Hash Password Baru
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 
-    // Hapus Token (Supaya tidak bisa dipakai lagi)
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
 

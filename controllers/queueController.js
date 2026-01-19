@@ -1,39 +1,33 @@
 const Queue = require("../models/Queue");
 
-// controllers/queueController.js
-
 exports.addQueue = async (req, res) => {
   try {
     const { poli, namaPasien, noHp, catatan } = req.body;
 
-    // --- [BARU] Poin 3: Validasi Jadwal (Jam Praktik) ---
     const now = new Date();
     const currentHour = now.getHours();
-    // Contoh: Pendaftaran hanya buka jam 07:00 - 20:00
+
     if (currentHour < 7 || currentHour >= 20) {
       return res
         .status(400)
         .json({ msg: "Pendaftaran tutup. Buka jam 07:00 - 20:00 WIB." });
     }
 
-    // --- [BARU] Poin 3: Validasi Kuota Harian ---
     const startToday = new Date();
     startToday.setHours(0, 0, 0, 0);
 
-    // Hitung jumlah antrean di poli ini hari ini
     const countQueue = await Queue.countDocuments({
       poli: poli,
       tanggal: { $gte: startToday },
     });
 
-    const KUOTA_MAX = 50; // Batas kuota per poli
+    const KUOTA_MAX = 50;
     if (countQueue >= KUOTA_MAX) {
       return res
         .status(400)
         .json({ msg: `Kuota ${poli} hari ini sudah penuh.` });
     }
 
-    // Logika Nomor Antrean (Lanjutan kode lama)
     const lastQueue = await Queue.findOne({
       poli: poli,
       tanggal: { $gte: startToday },
@@ -48,13 +42,11 @@ exports.addQueue = async (req, res) => {
       catatan: catatan,
       poli: poli,
       nomorAntrean: nomorBaru,
-      status: "menunggu", // Default status
+      status: "menunggu",
     });
 
     const queue = await newQueue.save();
 
-    // --- [BARU] Poin 2: Real-Time Trigger ---
-    // Kirim sinyal ke semua client bahwa ada antrean baru
     const io = req.app.get("socketio");
     io.emit("queue_updated", { msg: "Ada antrean baru masuk!" });
 
@@ -65,7 +57,6 @@ exports.addQueue = async (req, res) => {
   }
 };
 
-// 2. Lihat Antrean Saya (History)
 exports.getMyQueues = async (req, res) => {
   try {
     const queues = await Queue.find({ user: req.user.id }).sort({
@@ -78,9 +69,6 @@ exports.getMyQueues = async (req, res) => {
   }
 };
 
-// ... kode addQueue dan getMyQueues yang sudah ada ...
-
-// 3. Update Status Antrean (Admin: Panggil / Selesaikan)
 exports.updateQueueStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -90,8 +78,6 @@ exports.updateQueueStatus = async (req, res) => {
       { new: true },
     );
 
-    // --- [BARU] Poin 2: Real-Time Trigger ---
-    // Kirim sinyal saat status berubah (misal: Admin memanggil pasien)
     const io = req.app.get("socketio");
     io.emit("queue_updated", { msg: "Status antrean berubah!" });
 
@@ -104,7 +90,6 @@ exports.updateQueueStatus = async (req, res) => {
 
 exports.getAllQueues = async (req, res) => {
   try {
-    // Ambil semua antrean hari ini
     const startToday = new Date();
     startToday.setHours(0, 0, 0, 0);
 
@@ -118,24 +103,18 @@ exports.getAllQueues = async (req, res) => {
   }
 };
 
-// ... import dan kode lainnya ...
-
-// [BARU] Hapus Semua Antrean Hari Ini
 exports.resetDailyQueue = async (req, res) => {
   try {
-    // Tentukan range waktu hari ini (00:00:00 - 23:59:59)
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Hapus data yang tanggalnya ada di range hari ini
     const result = await Queue.deleteMany({
       tanggal: { $gte: startOfDay, $lte: endOfDay },
     });
 
-    // Kirim notifikasi real-time via Socket.io agar layar lain update otomatis
     const io = req.app.get("socketio");
     if (io) {
       io.emit("queue_updated", {

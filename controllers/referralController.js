@@ -1,19 +1,17 @@
 const Referral = require("../models/Referral");
 const User = require("../models/User");
 
-// 1. ADMIN: Buat Surat Rujukan Baru (Tanpa pilih RS dulu)
 exports.createReferralRequest = async (req, res) => {
   try {
     const { pasienId, namaPasien, spesialis, catatan } = req.body;
 
-    // Buat data rujukan baru
     const newReferral = new Referral({
       pasien: pasienId,
       namaPasien: namaPasien,
-      adminPembuat: req.user.id, // ID Admin dari token login
+      adminPembuat: req.user.id,
       spesialisTujuan: spesialis,
       catatan: catatan,
-      status: "menunggu_pilihan_pasien", // Status awal
+      status: "menunggu_pilihan_pasien",
     });
 
     await newReferral.save();
@@ -24,10 +22,8 @@ exports.createReferralRequest = async (req, res) => {
   }
 };
 
-// 2. PASIEN: Lihat Notifikasi Rujukan (Yang statusnya masih 'menunggu')
 exports.getPendingReferrals = async (req, res) => {
   try {
-    // Cari rujukan milik user yang login DAN statusnya belum selesai
     const referrals = await Referral.find({
       pasien: req.user.id,
       status: "menunggu_pilihan_pasien",
@@ -40,12 +36,10 @@ exports.getPendingReferrals = async (req, res) => {
   }
 };
 
-// 3. PASIEN: Memilih RS (Finalisasi Rujukan)
 exports.chooseHospital = async (req, res) => {
   try {
     const { referralId, rsName, dokterName } = req.body;
 
-    // Cari rujukan berdasarkan ID dan pastikan milik pasien yang login
     let referral = await Referral.findOne({
       _id: referralId,
       pasien: req.user.id,
@@ -54,10 +48,9 @@ exports.chooseHospital = async (req, res) => {
     if (!referral)
       return res.status(404).json({ msg: "Rujukan tidak ditemukan" });
 
-    // Update data RS pilihan pasien
     referral.rsTujuan = rsName;
     referral.dokterTujuan = dokterName;
-    referral.status = "selesai"; // Rujukan resmi jadi
+    referral.status = "selesai";
 
     await referral.save();
     res.json(referral);
@@ -67,8 +60,6 @@ exports.chooseHospital = async (req, res) => {
   }
 };
 
-// 4. UMUM: Data Referensi RS (Data Hardcode untuk Pilihan Pasien)
-// Ini pengganti database RS yang lama, agar simpel.
 exports.getHospitalReference = async (req, res) => {
   const daftarRS = [
     {
@@ -176,7 +167,7 @@ exports.getCompletedReferrals = async (req, res) => {
     const referrals = await Referral.find({
       pasien: req.user.id,
       status: "selesai",
-    }).sort({ tanggal: -1 }); // Urutkan dari yang terbaru
+    }).sort({ tanggal: -1 });
 
     res.json(referrals);
   } catch (err) {
@@ -187,8 +178,6 @@ exports.getCompletedReferrals = async (req, res) => {
 
 exports.getAllReferrals = async (req, res) => {
   try {
-    // Ambil semua data, urutkan dari yang terbaru
-    // .populate('pasien', 'nama') digunakan untuk mengambil nama user dari ID pasien
     const referrals = await Referral.find()
       .populate("pasien", "nama")
       .sort({ tanggal: -1 });

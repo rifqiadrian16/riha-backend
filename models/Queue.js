@@ -3,15 +3,15 @@ const mongoose = require("mongoose");
 const QueueSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User", // Relasi ke tabel User
+    ref: "User",
     required: true,
   },
-  namaPasien: { type: String, required: true }, // Nama orang yang berobat
-  noHp: { type: String, default: "" }, // No HP orang yang berobat
+  namaPasien: { type: String, required: true },
+  noHp: { type: String, default: "" },
   catatan: { type: String, default: "" },
   poli: {
     type: String,
-    required: true, // Contoh: 'Umum', 'Gigi', 'KIA'
+    required: true,
   },
   nomorAntrean: {
     type: Number,

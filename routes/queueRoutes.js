@@ -11,10 +11,8 @@ const {
   resetDailyQueue,
 } = require("../controllers/queueController");
 
-// POST /api/queue -> Tambah Antrean (Perlu Login)
 router.post("/", auth, addQueue);
 
-// GET /api/queue -> Lihat Antrean Saya (Perlu Login)
 router.get("/", auth, getMyQueues);
 
 router.get("/all", auth, getAllQueues);
