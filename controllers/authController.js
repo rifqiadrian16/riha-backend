@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   secure: true,
   auth: {
     user: "noreply.riha@gmail.com",
-    pass: "bidq tcab vgvm tour",
+    pass: process.env.EMAIL_PASS,
   },
   family: 4,
 
