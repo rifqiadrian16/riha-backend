@@ -47,9 +47,6 @@ exports.addQueue = async (req, res) => {
 
     const queue = await newQueue.save();
 
-    const io = req.app.get("socketio");
-    io.emit("queue_updated", { msg: "Ada antrean baru masuk!" });
-
     res.json(queue);
   } catch (err) {
     console.error(err.message);
@@ -77,9 +74,6 @@ exports.updateQueueStatus = async (req, res) => {
       { status: status },
       { new: true },
     );
-
-    const io = req.app.get("socketio");
-    io.emit("queue_updated", { msg: "Status antrean berubah!" });
 
     res.json(updatedQueue);
   } catch (err) {
@@ -114,13 +108,6 @@ exports.resetDailyQueue = async (req, res) => {
     const result = await Queue.deleteMany({
       tanggal: { $gte: startOfDay, $lte: endOfDay },
     });
-
-    const io = req.app.get("socketio");
-    if (io) {
-      io.emit("queue_updated", {
-        msg: "Seluruh antrean hari ini telah di-reset oleh Admin.",
-      });
-    }
 
     res.json({
       msg: `Berhasil mereset ${result.deletedCount} antrean hari ini.`,

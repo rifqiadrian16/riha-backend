@@ -16,14 +16,6 @@ exports.createReferralRequest = async (req, res) => {
 
     await newReferral.save();
 
-    const io = req.app.get("socketio");
-    if (io) {
-      io.emit("referral_updated", {
-        msg: "Ada rujukan baru masuk!",
-        data: newReferral,
-      });
-    }
-
     res.json(newReferral);
   } catch (err) {
     console.error(err.message);
