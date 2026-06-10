@@ -20,6 +20,9 @@ app.use(cors({
 
 app.options(/.*/, cors());
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Rate Limiter
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
