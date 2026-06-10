@@ -11,8 +11,15 @@ const app = express();
 // Konfigurasi Dasar
 app.set("trust proxy", 1);
 connectDB();
-app.use(cors()); // Mengizinkan akses dari domain manapun secara otomatis
-app.use(express.json());
+app.use(cors({
+  origin: ['https://riha-frontend.vercel.app', 'http://localhost:4173'], // Izinkan Vercel dan Localhost
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Tambahkan baris ini untuk menangani preflight (OPTIONS)
+app.options('*', cors());
 
 // Rate Limiter
 const limiter = rateLimit({
