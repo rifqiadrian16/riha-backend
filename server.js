@@ -14,7 +14,7 @@ connectDB();
 app.use(cors({
   origin: ['https://riha-frontend.vercel.app', 'http://localhost:4173'], // Izinkan Vercel dan Localhost
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
   credentials: true
 }));
 
