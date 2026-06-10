@@ -18,8 +18,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Tambahkan baris ini untuk menangani preflight (OPTIONS)
-app.options('*', cors());
+app.options('/*', cors());
 
 // Rate Limiter
 const limiter = rateLimit({
