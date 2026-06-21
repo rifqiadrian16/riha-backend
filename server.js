@@ -11,12 +11,20 @@ const app = express();
 // Konfigurasi Dasar
 app.set("trust proxy", 1);
 connectDB();
+
+// Konfigurasi CORS Utama (Ini sudah sangat cukup)
 app.use(cors({
-  origin: ['https://riha-frontend.vercel.app', 'http://localhost:4173'], // Izinkan Vercel dan Localhost
+  origin: [
+    'https://riha-frontend.vercel.app', 
+    'http://localhost:5173', // Pastikan port lokal vite Anda terdaftar
+    'http://localhost:4173'
+  ], 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
   credentials: true
 }));
+
+// BARIS app.options() SUDAH DIHAPUS
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -34,7 +42,7 @@ app.use("/api/queue", require("./routes/queueRoutes"));
 app.use("/api/referrals", require("./routes/referralRoutes"));
 app.get("/api/notifications", auth, getPendingReferrals);
 
-// Route Root (Penting agar saat dibuka di Vercel tidak muncul 404)
+// Route Root
 app.get("/", (req, res) => {
   res.status(200).send("🚀 Server Backend RiHa Berjalan Normal!");
 });
@@ -45,5 +53,4 @@ app.listen(PORT, () =>
   console.log(`🚀 Server RiHa (Tanpa Socket) berjalan di port ${PORT}`)
 );
 
-// Penting untuk Vercel Serverless Function
 module.exports = app;
